@@ -1,11 +1,9 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -28,29 +26,41 @@ import {
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema } from "@shared/schema";
+import { z } from "zod";
 import { Redirect } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardPen } from "lucide-react";
 
+const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const registerSchema = loginSchema.extend({
+  role: z.enum(["admin", "project_manager", "developer"]),
+});
+
+type LoginData = z.infer<typeof loginSchema>;
+type RegisterData = z.infer<typeof registerSchema>;
+
 export default function AuthPage() {
-  const { user, loginMutation, registerMutation } = useAuth();
+  const { user, login, register } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
-  
-  const loginForm = useForm({
-    resolver: zodResolver(insertUserSchema.pick({ username: true, password: true })),
+
+  const loginForm = useForm<LoginData>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
       password: "",
     },
   });
 
-  const registerForm = useForm({
-    resolver: zodResolver(insertUserSchema),
+  const registerForm = useForm<RegisterData>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
       username: "",
       password: "",
-      role: "developer" as const,
+      role: "developer",
     },
   });
 
@@ -79,7 +89,7 @@ export default function AuthPage() {
                 <Form {...loginForm}>
                   <form
                     onSubmit={loginForm.handleSubmit((data) =>
-                      loginMutation.mutate(data)
+                      login(data.username, data.password)
                     )}
                     className="space-y-4"
                   >
@@ -109,11 +119,7 @@ export default function AuthPage() {
                         </FormItem>
                       )}
                     />
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={loginMutation.isPending}
-                    >
+                    <Button type="submit" className="w-full">
                       Login
                     </Button>
                   </form>
@@ -124,7 +130,7 @@ export default function AuthPage() {
                 <Form {...registerForm}>
                   <form
                     onSubmit={registerForm.handleSubmit((data) =>
-                      registerMutation.mutate(data)
+                      register(data.username, data.password, data.role)
                     )}
                     className="space-y-4"
                   >
@@ -181,11 +187,7 @@ export default function AuthPage() {
                         </FormItem>
                       )}
                     />
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={registerMutation.isPending}
-                    >
+                    <Button type="submit" className="w-full">
                       Register
                     </Button>
                   </form>
