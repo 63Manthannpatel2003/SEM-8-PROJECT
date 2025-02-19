@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useContext, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { mockUsers } from "@/lib/mock-data";
+import { mockLogin, mockRegister } from "@/lib/mock-data";
 
 type UserRole = "admin" | "project_manager" | "developer";
 
@@ -27,18 +27,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (username: string, password: string) => {
     setIsLoading(true);
-    const foundUser = mockUsers.find(u => u.username === username);
-
-    if (foundUser && password === "password") {
-      setUser(foundUser);
+    try {
+      const authenticatedUser = mockLogin(username, password);
+      setUser(authenticatedUser);
       toast({
         title: "Login successful",
-        description: `Welcome back, ${foundUser.username}!`,
+        description: `Welcome back, ${authenticatedUser.username}!`,
       });
-    } else {
+    } catch (error) {
       toast({
         title: "Login failed",
-        description: "Invalid username or password",
+        description: error instanceof Error ? error.message : "Invalid credentials",
         variant: "destructive",
       });
     }
@@ -47,27 +46,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = (username: string, password: string, role: UserRole) => {
     setIsLoading(true);
-    if (mockUsers.some(u => u.username === username)) {
+    try {
+      const newUser = mockRegister(username, password, role);
+      setUser(newUser);
+      toast({
+        title: "Registration successful",
+        description: "Your account has been created",
+      });
+    } catch (error) {
       toast({
         title: "Registration failed",
-        description: "Username already exists",
+        description: error instanceof Error ? error.message : "Registration failed",
         variant: "destructive",
       });
-      setIsLoading(false);
-      return;
     }
-
-    const newUser: User = {
-      id: mockUsers.length + 1,
-      username,
-      role,
-    };
-    mockUsers.push(newUser);
-    setUser(newUser);
-    toast({
-      title: "Registration successful",
-      description: "Your account has been created",
-    });
     setIsLoading(false);
   };
 

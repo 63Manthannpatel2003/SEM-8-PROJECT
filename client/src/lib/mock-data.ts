@@ -1,5 +1,12 @@
 import { Project, Task, TimeEntry } from "@shared/schema";
 
+// Mock user data with passwords for authentication
+export const mockUsers = [
+  { id: 1, username: "admin", password: "admin123", role: "admin" },
+  { id: 2, username: "pm", password: "pm123", role: "project_manager" },
+  { id: 3, username: "dev", password: "dev123", role: "developer" },
+];
+
 export const mockProjects: Project[] = [
   {
     id: 1,
@@ -70,12 +77,32 @@ export const mockTimeEntries: TimeEntry[] = [
   },
 ];
 
-// Mock user data
-export const mockUsers = [
-  { id: 1, username: "admin", role: "admin" },
-  { id: 2, username: "pm", role: "project_manager" },
-  { id: 3, username: "dev", role: "developer" },
-];
+// Helper functions for mock auth
+export function mockLogin(username: string, password: string) {
+  const user = mockUsers.find(u => u.username === username && u.password === password);
+  if (!user) {
+    throw new Error("Invalid username or password");
+  }
+  const { password: _, ...userWithoutPassword } = user;
+  return userWithoutPassword;
+}
+
+export function mockRegister(username: string, password: string, role: string) {
+  if (mockUsers.some(u => u.username === username)) {
+    throw new Error("Username already exists");
+  }
+
+  const newUser = {
+    id: mockUsers.length + 1,
+    username,
+    password,
+    role,
+  };
+
+  mockUsers.push(newUser);
+  const { password: _, ...userWithoutPassword } = newUser;
+  return userWithoutPassword;
+}
 
 // Helper functions for mock data operations
 export function getMockTimeEntriesForTask(taskId: number): TimeEntry[] {
