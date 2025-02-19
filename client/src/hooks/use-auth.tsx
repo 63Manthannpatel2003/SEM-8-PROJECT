@@ -1,5 +1,6 @@
 import { createContext, ReactNode, useContext, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { mockUsers } from "@/lib/mock-data";
 
 type UserRole = "admin" | "project_manager" | "developer";
 
@@ -11,24 +12,21 @@ interface User {
 
 type AuthContextType = {
   user: User | null;
+  isLoading: boolean;
   login: (username: string, password: string) => void;
   register: (username: string, password: string, role: UserRole) => void;
   logout: () => void;
 };
 
-const mockUsers: User[] = [
-  { id: 1, username: "admin", role: "admin" },
-  { id: 2, username: "pm", role: "project_manager" },
-  { id: 3, username: "dev", role: "developer" },
-];
-
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const login = (username: string, password: string) => {
+    setIsLoading(true);
     const foundUser = mockUsers.find(u => u.username === username);
 
     if (foundUser && password === "password") {
@@ -44,15 +42,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         variant: "destructive",
       });
     }
+    setIsLoading(false);
   };
 
   const register = (username: string, password: string, role: UserRole) => {
+    setIsLoading(true);
     if (mockUsers.some(u => u.username === username)) {
       toast({
         title: "Registration failed",
         description: "Username already exists",
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
 
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       title: "Registration successful",
       description: "Your account has been created",
     });
+    setIsLoading(false);
   };
 
   const logout = () => {
@@ -78,7 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        register,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

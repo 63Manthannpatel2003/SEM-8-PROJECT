@@ -40,6 +40,15 @@ export const mockTasks: Task[] = [
     status: "in_progress",
     estimatedHours: 16,
   },
+  {
+    id: 3,
+    projectId: 2,
+    title: "UI Design",
+    description: "Create mobile app UI design",
+    assignedTo: 3,
+    status: "todo",
+    estimatedHours: 24,
+  },
 ];
 
 export const mockTimeEntries: TimeEntry[] = [
@@ -60,3 +69,19 @@ export const mockTimeEntries: TimeEntry[] = [
     description: "Working on shopping cart features",
   },
 ];
+
+// Mock user data
+export const mockUsers = [
+  { id: 1, username: "admin", role: "admin" },
+  { id: 2, username: "pm", role: "project_manager" },
+  { id: 3, username: "dev", role: "developer" },
+];
+
+// Helper functions for mock data operations
+export function getMockTimeEntriesForTask(taskId: number): TimeEntry[] {
+  return mockTimeEntries.filter(entry => entry.taskId === taskId);
+}
+
+export function getMockTasksForProject(projectId: number): Task[] {
+  return mockTasks.filter(task => task.projectId === projectId);
+}

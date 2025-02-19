@@ -1,53 +1,74 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export type UserRole = "admin" | "project_manager" | "developer";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").$type<UserRole>().notNull(),
+export interface User {
+  id: number;
+  username: string;
+  role: UserRole;
+}
+
+export interface Project {
+  id: number;
+  name: string;
+  description: string | null;
+  managerId: number;
+}
+
+export interface Task {
+  id: number;
+  projectId: number;
+  title: string;
+  description: string | null;
+  assignedTo: number;
+  status: string;
+  estimatedHours: number | null;
+}
+
+export interface TimeEntry {
+  id: number;
+  taskId: number;
+  userId: number;
+  startTime: Date;
+  endTime: Date | null;
+  description: string | null;
+}
+
+export const insertUserSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+  role: z.enum(["admin", "project_manager", "developer"]).default("developer"),
 });
 
-export const projects = pgTable("projects", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  managerId: integer("manager_id").notNull(),
+export const insertProjectSchema = z.object({
+  name: z.string().min(1, "Project name is required"),
+  description: z.string().nullable(),
+  managerId: z.number(),
 });
 
-export const tasks = pgTable("tasks", {
-  id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull(),
-  title: text("title").notNull(),
-  description: text("description"),
-  assignedTo: integer("assigned_to").notNull(),
-  status: text("status").notNull(),
-  estimatedHours: integer("estimated_hours"),
+export const insertTaskSchema = z.object({
+  projectId: z.number(),
+  title: z.string().min(1, "Task title is required"),
+  description: z.string().nullable(),
+  assignedTo: z.number(),
+  status: z.string(),
+  estimatedHours: z.number().nullable(),
 });
 
-export const timeEntries = pgTable("time_entries", {
-  id: serial("id").primaryKey(),
-  taskId: integer("task_id").notNull(),
-  userId: integer("user_id").notNull(),
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time"),
-  description: text("description"),
+export const insertTimeEntrySchema = z.object({
+  taskId: z.number(),
+  userId: z.number(),
+  startTime: z.date(),
+  endTime: z.date().nullable(),
+  description: z.string().nullable(),
 });
-
-export const insertUserSchema = createInsertSchema(users).omit({ id: true });
-export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
-export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true });
-export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({ id: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
 
-export type User = typeof users.$inferSelect;
-export type Project = typeof projects.$inferSelect;
-export type Task = typeof tasks.$inferSelect;
-export type TimeEntry = typeof timeEntries.$inferSelect;
+export type User = User;
+export type Project = Project;
+export type Task = Task;
+export type TimeEntry = TimeEntry;
