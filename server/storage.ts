@@ -1,8 +1,11 @@
-import { User, Project, Task, TimeEntry, InsertUser, InsertProject, InsertTask, InsertTimeEntry } from "@shared/schema";
+import { users, projects, tasks, timeEntries, type User, type Project, type Task, type TimeEntry, type InsertUser, type InsertTask, type InsertTimeEntry } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   // User operations
@@ -13,123 +16,101 @@ export interface IStorage {
   // Project operations
   getProjects(): Promise<Project[]>;
   getProject(id: number): Promise<Project | undefined>;
-  createProject(project: InsertProject): Promise<Project>;
+  createProject(project: { name: string; description: string | null; managerId: number }): Promise<Project>;
 
   // Task operations
   getTasks(projectId: number): Promise<Task[]>;
   getTask(id: number): Promise<Task | undefined>;
-  createTask(task: InsertTask): Promise<Task>;
+  createTask(task: { projectId: number; title: string; description: string | null; assignedTo: number; status: string; estimatedHours: number | null }): Promise<Task>;
   updateTaskStatus(id: number, status: string): Promise<Task>;
 
   // Time entry operations
   getTimeEntries(taskId: number): Promise<TimeEntry[]>;
-  createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry>;
+  createTimeEntry(entry: { taskId: number; userId: number; startTime: Date; endTime: Date | null; description: string | null }): Promise<TimeEntry>;
   updateTimeEntry(id: number, endTime: Date): Promise<TimeEntry>;
 
   sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private projects: Map<number, Project>;
-  private tasks: Map<number, Task>;
-  private timeEntries: Map<number, TimeEntry>;
-  currentId: { [key: string]: number };
+export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.projects = new Map();
-    this.tasks = new Map();
-    this.timeEntries = new Map();
-    this.currentId = {
-      users: 1,
-      projects: 1,
-      tasks: 1,
-      timeEntries: 1,
-    };
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId.users++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async getProjects(): Promise<Project[]> {
-    return Array.from(this.projects.values());
+    return db.select().from(projects);
   }
 
   async getProject(id: number): Promise<Project | undefined> {
-    return this.projects.get(id);
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project;
   }
 
-  async createProject(project: InsertProject): Promise<Project> {
-    const id = this.currentId.projects++;
-    const newProject: Project = { ...project, id };
-    this.projects.set(id, newProject);
+  async createProject(project: { name: string; description: string | null; managerId: number }): Promise<Project> {
+    const [newProject] = await db.insert(projects).values(project).returning();
     return newProject;
   }
 
   async getTasks(projectId: number): Promise<Task[]> {
-    return Array.from(this.tasks.values()).filter(
-      (task) => task.projectId === projectId,
-    );
+    return db.select().from(tasks).where(eq(tasks.projectId, projectId));
   }
 
   async getTask(id: number): Promise<Task | undefined> {
-    return this.tasks.get(id);
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task;
   }
 
-  async createTask(task: InsertTask): Promise<Task> {
-    const id = this.currentId.tasks++;
-    const newTask: Task = { ...task, id };
-    this.tasks.set(id, newTask);
+  async createTask(task: { projectId: number; title: string; description: string | null; assignedTo: number; status: string; estimatedHours: number | null }): Promise<Task> {
+    const [newTask] = await db.insert(tasks).values(task).returning();
     return newTask;
   }
 
   async updateTaskStatus(id: number, status: string): Promise<Task> {
-    const task = this.tasks.get(id);
-    if (!task) throw new Error("Task not found");
-    const updatedTask = { ...task, status };
-    this.tasks.set(id, updatedTask);
+    const [updatedTask] = await db
+      .update(tasks)
+      .set({ status })
+      .where(eq(tasks.id, id))
+      .returning();
     return updatedTask;
   }
 
   async getTimeEntries(taskId: number): Promise<TimeEntry[]> {
-    return Array.from(this.timeEntries.values()).filter(
-      (entry) => entry.taskId === taskId,
-    );
+    return db.select().from(timeEntries).where(eq(timeEntries.taskId, taskId));
   }
 
-  async createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry> {
-    const id = this.currentId.timeEntries++;
-    const newEntry: TimeEntry = { ...entry, id };
-    this.timeEntries.set(id, newEntry);
+  async createTimeEntry(entry: { taskId: number; userId: number; startTime: Date; endTime: Date | null; description: string | null }): Promise<TimeEntry> {
+    const [newEntry] = await db.insert(timeEntries).values(entry).returning();
     return newEntry;
   }
 
   async updateTimeEntry(id: number, endTime: Date): Promise<TimeEntry> {
-    const entry = this.timeEntries.get(id);
-    if (!entry) throw new Error("Time entry not found");
-    const updatedEntry = { ...entry, endTime };
-    this.timeEntries.set(id, updatedEntry);
+    const [updatedEntry] = await db
+      .update(timeEntries)
+      .set({ endTime })
+      .where(eq(timeEntries.id, id))
+      .returning();
     return updatedEntry;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

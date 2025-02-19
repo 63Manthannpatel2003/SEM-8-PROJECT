@@ -20,10 +20,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (user.role !== "project_manager" && user.role !== "admin") {
       return res.sendStatus(403);
     }
-    
-    const parsed = insertProjectSchema.safeParse(req.body);
+
+    const parsed = insertProjectSchema.safeParse({
+      ...req.body,
+      description: req.body.description || null,
+    });
     if (!parsed.success) return res.status(400).json(parsed.error);
-    
+
     const project = await storage.createProject(parsed.data);
     res.status(201).json(project);
   });
@@ -41,13 +44,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (user.role !== "project_manager" && user.role !== "admin") {
       return res.sendStatus(403);
     }
-    
+
     const parsed = insertTaskSchema.safeParse({
       ...req.body,
       projectId: Number(req.params.projectId),
+      description: req.body.description || null,
+      estimatedHours: req.body.estimatedHours || null,
     });
     if (!parsed.success) return res.status(400).json(parsed.error);
-    
+
     const task = await storage.createTask(parsed.data);
     res.status(201).json(task);
   });
@@ -55,15 +60,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Time entries
   app.post("/api/tasks/:taskId/time", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
+
     const parsed = insertTimeEntrySchema.safeParse({
       ...req.body,
       taskId: Number(req.params.taskId),
       userId: req.user!.id,
       startTime: new Date(),
+      endTime: null,
+      description: req.body.description || null,
     });
     if (!parsed.success) return res.status(400).json(parsed.error);
-    
+
     const entry = await storage.createTimeEntry(parsed.data);
     res.status(201).json(entry);
   });

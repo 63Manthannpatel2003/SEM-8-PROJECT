@@ -37,12 +37,16 @@ export const timeEntries = pgTable("time_entries", {
   description: text("description"),
 });
 
-export const insertUserSchema = createInsertSchema(users);
-export const insertProjectSchema = createInsertSchema(projects);
-export const insertTaskSchema = createInsertSchema(tasks);
-export const insertTimeEntrySchema = createInsertSchema(timeEntries);
+export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
+export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true });
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({ id: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
