@@ -1,8 +1,6 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
-import { Task, TimeEntry, Project } from "@shared/schema";
-import { useAuth } from "@/hooks/use-auth";
-import { apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
+import { mockTasks, mockProjects } from "@/lib/mock-data";
+import { Task, Project } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -21,49 +19,36 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Play, Square, Clock } from "lucide-react";
-import { useState } from "react";
 
 export default function Tasks() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { data: projects } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  });
+  const handleStartTimer = (taskId: number) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId 
+        ? { ...task, status: "in_progress" } 
+        : task
+    ));
+    toast({
+      title: "Timer started",
+      description: "The timer has been started for this task.",
+    });
+  };
 
-  const { data: tasks, isLoading } = useQuery<Task[]>({
-    queryKey: ["/api/projects", selectedProject, "tasks"],
-    enabled: !!selectedProject,
-  });
-
-  const startTimeEntry = useMutation({
-    mutationFn: async (taskId: number) => {
-      const res = await apiRequest("POST", `/api/tasks/${taskId}/time`, {});
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({
-        title: "Time tracking started",
-        description: "The timer has been started for this task.",
-      });
-    },
-  });
-
-  const stopTimeEntry = useMutation({
-    mutationFn: async (timeId: number) => {
-      const res = await apiRequest("PATCH", `/api/time/${timeId}`, {});
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({
-        title: "Time tracking stopped",
-        description: "The timer has been stopped for this task.",
-      });
-    },
-  });
+  const handleStopTimer = (taskId: number) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId 
+        ? { ...task, status: task.status === "in_progress" ? "completed" : task.status } 
+        : task
+    ));
+    toast({
+      title: "Timer stopped",
+      description: "The timer has been stopped for this task.",
+    });
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -77,6 +62,10 @@ export default function Tasks() {
         return "bg-secondary";
     }
   };
+
+  const filteredTasks = selectedProject 
+    ? tasks.filter(task => task.projectId === selectedProject)
+    : tasks;
 
   if (isLoading) {
     return (
@@ -98,7 +87,7 @@ export default function Tasks() {
             <SelectValue placeholder="Select Project" />
           </SelectTrigger>
           <SelectContent>
-            {projects?.map((project) => (
+            {mockProjects.map((project) => (
               <SelectItem key={project.id} value={project.id.toString()}>
                 {project.name}
               </SelectItem>
@@ -108,7 +97,7 @@ export default function Tasks() {
       </div>
 
       <div className="grid gap-4">
-        {tasks?.map((task) => (
+        {filteredTasks.map((task) => (
           <Card key={task.id}>
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
               <div>
@@ -124,16 +113,15 @@ export default function Tasks() {
                 <Clock className="h-4 w-4 mr-1" />
                 {task.estimatedHours} hours estimated
               </div>
-              {task.assignedTo === user?.id && task.status !== "completed" && (
+              {task.status !== "completed" && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
                     if (task.status === "in_progress") {
-                      // Mock time entry ID for demo
-                      stopTimeEntry.mutate(1);
+                      handleStopTimer(task.id);
                     } else {
-                      startTimeEntry.mutate(task.id);
+                      handleStartTimer(task.id);
                     }
                   }}
                 >
@@ -161,7 +149,7 @@ export default function Tasks() {
         </div>
       )}
 
-      {selectedProject && tasks?.length === 0 && (
+      {selectedProject && filteredTasks.length === 0 && (
         <div className="text-center text-muted-foreground py-8">
           No tasks found for this project
         </div>
